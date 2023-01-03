@@ -14,6 +14,7 @@ from timm.utils import accuracy, ModelEma
 
 from losses import DistillationLoss
 import utils
+import time
 
 
 def train_one_epoch(model: torch.nn.Module, criterion: DistillationLoss,
@@ -67,7 +68,7 @@ def train_one_epoch(model: torch.nn.Module, criterion: DistillationLoss,
 
 
 @torch.no_grad()
-def evaluate(data_loader, model, device):
+def evaluate(data_loader, model, device, args=None):
     criterion = torch.nn.CrossEntropyLoss()
 
     metric_logger = utils.MetricLogger(delimiter="  ")
@@ -75,15 +76,24 @@ def evaluate(data_loader, model, device):
 
     # switch to evaluation mode
     model.eval()
+    total_time = 0.0
+    total_sample = 0
+    for i, (images, target) in enumerate(metric_logger.log_every(data_loader, 10, header)):
+        if args.num_iter > 0 and i >= args.num_iter: break
 
-    for images, target in metric_logger.log_every(data_loader, 10, header):
+        elapsed = time.time()
         images = images.to(device, non_blocking=True)
         target = target.to(device, non_blocking=True)
-
-        # compute output
-        with torch.cuda.amp.autocast():
-            output = model(images)
-            loss = criterion(output, target)
+        output = model(images)
+        loss = criterion(output, target)
+        if torch.cuda.is_available(): torch.cuda.synchronize()
+        elapsed = time.time() - elapsed
+        if args.profile:
+            args.p.step()
+        print("Iteration: {}, inference time: {} sec.".format(i, elapsed), flush=True)
+        if i >= args.num_warmup:
+            total_time += elapsed
+            total_sample += args.batch_size
 
         acc1, acc5 = accuracy(output, target, topk=(1, 5))
 
@@ -95,5 +105,10 @@ def evaluate(data_loader, model, device):
     metric_logger.synchronize_between_processes()
     print('* Acc@1 {top1.global_avg:.3f} Acc@5 {top5.global_avg:.3f} loss {losses.global_avg:.3f}'
           .format(top1=metric_logger.acc1, top5=metric_logger.acc5, losses=metric_logger.loss))
+
+    throughput = total_sample / total_time
+    latency = total_time / total_sample * 1000
+    print('inference latency: %.3f ms' % latency)
+    print('inference Throughput: %f images/s' % throughput)
 
     return {k: meter.global_avg for k, meter in metric_logger.meters.items()}
