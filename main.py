@@ -348,8 +348,6 @@ def main(args):
     if args.channels_last:
         model = model.to(memory_format=torch.channels_last)
         print("---- Use NHWC model")
-    if args.compile:
-        model = torch.compile(model, backend=args.backend, options={"freezing": True})
     model_ema = None
     if args.model_ema:
         # Important to create EMA model after cuda(), DP wrapper, and AMP but before SyncBN and DDP wrapper
