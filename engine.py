@@ -76,6 +76,8 @@ def evaluate(data_loader, model, device, args=None):
 
     # switch to evaluation mode
     model.eval()
+    if args.compile:
+        model = torch.compile(model, backend=args.backend, options={"freezing": True})
     total_time = 0.0
     total_sample = 0
     for i, (images, target) in enumerate(metric_logger.log_every(data_loader, 10, header)):
