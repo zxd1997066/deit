@@ -537,7 +537,11 @@ if __name__ == '__main__':
             main(args)
     elif args.precision == "float16":
         print('---- Enable AMP float16')
-        with torch.cpu.amp.autocast(enabled=True, dtype=torch.half):
-            main(args)
+        if args.device == "cpu":
+            with torch.cpu.amp.autocast(enabled=True, dtype=torch.half):
+                main(args)
+        elif args.device == "cuda":
+            with torch.cuda.amp.autocast(enabled=True, dtype=torch.half):
+                main(args)
     else:
         main(args)
