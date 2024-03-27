@@ -5,6 +5,7 @@ import datetime
 import numpy as np
 import time
 import torch
+import torch._inductor
 import torch.backends.cudnn as cudnn
 import json
 
@@ -442,6 +443,8 @@ def main(args):
             p.export_chrome_trace(timeline_file)
 
         if args.profile:
+            torch._inductor.config.profiler_mark_wrapper_call = True
+            torch._inductor.config.cpp.enable_kernel_profile = True
             with torch.profiler.profile(
                 activities=[torch.profiler.ProfilerActivity.CPU, torch.profiler.ProfilerActivity.CUDA],
                 record_shapes=True,
