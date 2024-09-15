@@ -199,6 +199,8 @@ def get_args_parser():
                     help="enable torch.compile")
     parser.add_argument("--backend", type=str, default='inductor',
                     help="enable torch.compile backend")
+    parser.add_argument("--triton_cpu", action='store_true', default=False,
+                    help="enable triton_cpu")
 
     return parser
 
@@ -207,6 +209,10 @@ def main(args):
     utils.init_distributed_mode(args)
 
     print(args)
+    if args.triton_cpu:
+        print("run with triton cpu backend")
+        import torch._inductor.config
+        torch._inductor.config.cpu_backend="triton"
 
     if args.distillation_type != 'none' and args.finetune and not args.eval:
         raise NotImplementedError("Finetuning with distillation not yet supported")
